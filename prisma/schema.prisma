@@ -13,28 +13,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User{
-  @@map(name: "users")
-
-  id String  @id @default(uuid())
-  name String  @db.VarChar(255)
-  email String 
-  photo String? @default("default.png")
-  verified Boolean? @default(false) 
-
-  password String
-  role RoleEnumType? @default(user)
-
-  verificationCode String? @db.Text
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([email, verificationCode])
-  @@index([email, verificationCode])
-}
-
-enum RoleEnumType {
-  user
-  admin
+model User {
+  id         String   @id @default(uuid())
+  firstname  String
+  lastname   String
+  phone      String   @unique
+  email      String   @default("-")
+  certifcate String?  @default("")
+  role       String
+  approved   Boolean  @default(false)
+  district   String
+  sector     String
+  password   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
