@@ -10,4 +10,5 @@ const multerStorage_1 = require("../utils/multerStorage");
 const upload = (0, multer_1.default)({ storage: multerStorage_1.storage });
 const userRouter = express_1.default.Router();
 userRouter.post("/", upload.single("file"), user_1.userRegisterHandler);
+userRouter.patch("/approve/:userId", user_1.approveUserHandler);
 exports.default = userRouter;

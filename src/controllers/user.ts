@@ -15,12 +15,7 @@ export const userRegisterHandler = async (
 ): Promise<any> => {
   try {
     const body = req.body;
-    if (!req.file) {
-      return res.status(400).json({
-        status: 400,
-        message: "No certifcate selected",
-      });
-    }
+    let cloudinaryUpload;
     const validation = userValidation.safeParse(body);
     if (!validation.success)
       return res.json({
@@ -31,14 +26,34 @@ export const userRegisterHandler = async (
           validation.error.errors[0].message,
       });
 
-    const cloudinaryUpload = await cloudinary.uploader.upload(req.file.path, {
-      folder: "certificates",
-      resource_type: "auto",
+    const user = await prisma.user.findFirst({
+      where: {
+        phone: body.phone,
+      },
     });
+    if (user)
+      return res.json({
+        status: 400,
+        message: "Another user with provided phone number is already exist.",
+      });
+    if (!req.file && body.role == "physician") {
+      return res.status(400).json({
+        status: 400,
+        message: "No certifcate selected",
+      });
+    } else if (req.file) {
+      cloudinaryUpload = await cloudinary.uploader.upload(req.file.path, {
+        folder: "certificates",
+        resource_type: "auto",
+      });
+    } else {
+      cloudinaryUpload = null;
+    }
     const hashedPassword = await bcrypt.hash(body.password, 10);
+
     const camp = await prisma.user.create({
       data: {
-        certifcate: cloudinaryUpload.secure_url || "",
+        certifcate: cloudinaryUpload?.secure_url || "",
         firstname: body.firstname,
         lastname: body.lastname,
         phone: body.phone,
@@ -54,7 +69,7 @@ export const userRegisterHandler = async (
         status: 200,
         message: "Registration success",
         data: {
-          certificateUrl: cloudinaryUpload.secure_url,
+          certificateUrl: cloudinaryUpload?.secure_url ?? null,
         },
       });
     } else {
@@ -69,6 +84,62 @@ export const userRegisterHandler = async (
       status: 500,
       message: "Error occured while uploading certificate",
       error: err instanceof Error ? err.message : "Unknown error",
+    });
+  }
+};
+
+export const approveUserHandler = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { userId } = req.params;
+    if (!userId) {
+      return res.json({
+        status: 400,
+        success: false,
+        message: "Physician Identity is required",
+      });
+    }
+    const existingUser = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+    if (!existingUser) {
+      return res.json({
+        status: 404,
+        success: false,
+        message: "Physician not found",
+      });
+    }
+    if (existingUser.approved) {
+      return res.json({
+        status: 200,
+        success: true,
+        message: "This physician is already approved",
+        data: existingUser,
+      });
+    }
+    const updatedUser = await prisma.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        approved: true,
+      },
+    });
+    const { password, ...userWithoutPassword } = updatedUser;
+    return res.status(200).json({
+      success: true,
+      message: "Physician account is approved successfully",
+      data: userWithoutPassword,
+    });
+  } catch (error) {
+    console.error("User approval error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "An error occurred while approving the user",
     });
   }
 };
